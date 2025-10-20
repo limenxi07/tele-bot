@@ -2,8 +2,11 @@ import os
 import json
 from datetime import datetime
 from anthropic import Anthropic
+from dotenv import load_dotenv
 
-client = Anthropic()
+load_dotenv()
+client = Anthropic(api_key=os.getenv("CLAUDE_API_KEY"))
+MODEL_NAME = "claude-sonnet-4-5-20250929"  # or "claude-3-5-haiku-20241022"?
 
 def extract_event_details(message_text: str) -> dict:
     prompt = f"""Extract event details from this message and return ONLY valid JSON (no other text):
@@ -33,7 +36,7 @@ def extract_event_details(message_text: str) -> dict:
     - Return ONLY the JSON object, nothing else"""
 
     response = client.messages.create(
-        model="claude-3-5-sonnet-20241022", # "claude-3-5-haiku-20241022" haiku is cheaper
+        model=MODEL_NAME,
         max_tokens=500,
         messages=[
             {
