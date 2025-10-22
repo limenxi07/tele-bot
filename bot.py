@@ -2,7 +2,7 @@ import os
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from dotenv import load_dotenv
-from claude import extract_event_details, create_event_record, format_event_for_display
+from claude import extract_event_details, format_event_for_display
 
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -39,17 +39,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Extract event details using Claude
         event_data = extract_event_details(text_content)
-        event_record = create_event_record(
-            text_content, 
-            event_data,
-            user_id=user.id,
-            username=user.username
-        )
-        formatted_result = format_event_for_display(event_record)
+        formatted_result = format_event_for_display(event_data)
         await message.reply_text(formatted_result)
         
         # Placeholder - in real app, save to DB
-        print(f"Event record: {event_record}") 
+        print(f"Event record: {event_data}")
     elif message.forward_origin:
         print("❌ Forwarded message has no text content")
         await message.reply_text(
@@ -71,6 +65,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO | filters.Document.ALL, handle_message))
 
     # Start polling (start listening for messages)
     print("🤖 Bot is running... (Press Ctrl+C to stop)")

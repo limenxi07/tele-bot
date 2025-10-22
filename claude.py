@@ -119,11 +119,11 @@ def format_event_for_display(event_data: dict) -> str:
     
     result = f"""✅ Event successfully extracted!
 
-    📌 **{event_data.get('title', 'Untitled')}**
-    🏷️ Type: {event_data.get('event_type', 'other').upper()}
-    📅 Date: {event_data.get('date', 'TBC')}
-    📍 Location: {event_data.get('location', 'TBC')}
-    📝 Synopsis: {event_data.get('synopsis', 'No description')}"""
+📌 **{event_data.get('title', 'Untitled')}**
+🏷️ Type: {event_data.get('event_type', 'other').upper()}
+📅 Date: {event_data.get('date', 'TBC')}
+📍 Location: {event_data.get('location', 'TBC')}
+📝 Synopsis: {event_data.get('synopsis', 'No description')}"""
     
     # --- Add optional fields if they have values --- #
     # Add org
