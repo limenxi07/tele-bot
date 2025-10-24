@@ -3,6 +3,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from dotenv import load_dotenv
 from claude import extract_event_details, format_event_for_display
+from database import save_event
 
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
@@ -29,7 +30,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handles any message or forwarded message"""
     message = update.message
     user = message.from_user
-    text_content = message.text or message.caption # for media with captions
+    text_content = message.text or message.caption # caption - for media with captions
     print("Message received.") # checkpoint; remove later
     
     # Check if it's a forwarded message
@@ -41,19 +42,26 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         event_data = extract_event_details(text_content)
         formatted_result = format_event_for_display(event_data)
         await message.reply_text(formatted_result)
-        
-        # Placeholder - in real app, save to DB
-        print(f"Event record: {event_data}")
+
+        # Save to database
+        try:
+            saved_event = save_event(
+                event_data=event_data,
+                user_id=user.id,
+                username=user.username or "unknown",
+                raw_message=text_content
+            )
+            formatted_result += f"\n\n✅ Event saved with ID: {saved_event.id}"
+            await message.reply_text(formatted_result) # Reply with event details & save confirmation
+        except Exception as e:
+            print(f"❌ Database error: {e}")
+            await message.reply_text(f"⚠️ Event extracted but couldn't save to database :( Please try again.")
     elif message.forward_origin:
         print("❌ Forwarded message has no text content")
-        await message.reply_text(
-            "The forwarded message has no text content for me to extract :("
-        )
+        await message.reply_text("The forwarded message has no text content for me to extract :(")
     else:
         print("❌ Not detected as forwarded message")
-        await message.reply_text(
-            "Please forward an event message to me :)"
-        )
+        await message.reply_text("Please forward an event message to me :)")
 
 # --- RUN APP --- #
 def main():
