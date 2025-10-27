@@ -51,7 +51,6 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 raw_message=text_content
             )
             formatted_result = format_event_for_display(cleaned_data)
-            formatted_result += f"\n💾 Event saved with ID: {saved_event.id}"
             await message.reply_text(formatted_result) # Reply with event details & save confirmation
         except Exception as e:
             print(f"❌ Database error: {e}")
