@@ -1,5 +1,6 @@
 import os
 import json
+import re
 from datetime import datetime
 from anthropic import Anthropic
 from dotenv import load_dotenv
@@ -29,33 +30,33 @@ def extract_event_details(message_text: str) -> dict:
     Please extract and return ONLY a valid JSON object with these fields:
     {{
         "title": "event name/title - REQUIRED - infer intelligently if not explicit",
-        "event_type": "REQUIRED - one of: workshop, hackathon, talk, career_fair, recruitment, mentorship, qa_session, networking, competition, briefing, or other",
+        "event_type": "REQUIRED - one of: Workshop, Hackathon, Talk, Career_Fair, Recruitment, Mentorship, QA_Session, Networking, Competition, Briefing, or Other",
         "date": "REQUIRED - date and time (e.g., '22 Oct 2025, 10am-2pm' or '8-9 Nov 2025' or 'Ongoing')",
-        "location": "physical location, 'online', 'hybrid', or 'TBC'",
-        "fee": "'free', 'paid', specific amount, or 'TBC'",
-        "signup_link": "URL to signup/register, 'walk-in', or 'TBC'",
+        "location": "Physical location, 'Online', 'Hybrid', or 'TBC'",
+        "fee": "0 if free, otherwise the amount as a float (e.g. 6.7, 10, 25), or assume free (0) if not specified",
+        "signup_link": "URL to signup/register, 'Walk-in', or 'TBC'",
         "synopsis": "REQUIRED - 1-2 sentence description of what the event is about",
         "organisation": "organizing body/club/company (e.g., 'NUS Greyhats', 'DSO', 'Jane Street', 'NUS Fintech Society'), or 'TBC' if not mentioned",
-        "deadline": "REQUIRED - registration/application deadline in format 'DD MMM YYYY, time' OR if not explicitly stated, estimate 24 hours before event start and append ' (estimated)' OR 'None' if ongoing/no deadline",
-        "target_audience": "REQUIRED - who it's for (e.g., 'women and gender-expansive students', 'CS students', 'startup founders', 'all NUS students') - default to 'all students' if unclear",
+        "deadline": "REQUIRED - registration/application deadline in format 'DD MMM YYYY, time' OR if not explicitly stated, estimate 24 hours before event start OR 'None' if ongoing/no deadline",
+        "target_audience": "REQUIRED - who it's for (e.g., 'Women and gender-expansive students', 'CS students', 'Startup founders', 'All NUS students') - default to 'All students' if unclear",
         "key_speakers": "names of notable speakers/guests if mentioned, or 'None'",
-        "refreshments": "type of refreshments if mentioned (e.g., 'dinner', 'lunch', 'light refreshments', 'snacks', 'tea'), or 'none' if not mentioned"
+        "refreshments": "type of refreshments if mentioned (e.g., 'Dinner', 'Lunch', 'Light refreshments', 'Snacks', 'Tea'), or 'None' if not mentioned"
     }}
 
     CRITICAL EXTRACTION RULES:
     1. **Required fields cannot be 'TBC'**: title, event_type, date, synopsis, deadline (estimate if needed), target_audience
-    2. **Optional fields use 'TBC' if missing**: location, fee, signup_link, key_speakers
-    3. **Deadline estimation**: If no explicit deadline, calculate 24 hours before event date and add " (estimated)"
-    - Example: Event on "23 Oct 2025, 7pm" → deadline = "22 Oct 2025, 7pm (estimated)"
+    2. **Optional fields use 'TBC' if missing**: location, signup_link, key_speakers
+    3. **Deadline estimation**: If no explicit deadline, calculate 24 hours before event date
+    - Example: Event on "23 Oct 2025, 7pm" → deadline = "22 Oct 2025, 7pm"
     - If event is "Ongoing" or rolling recruitment → deadline = "None"
-    4. **Target audience defaults**: If unclear → "all students"
-    5. **Refreshments detection**: Look for keywords and extract the TYPE: "dinner provided" → "dinner", "light refreshments" → "light refreshments", "snacks" → "snacks", "free acai" → "acai", "networking dinner" → "dinner", etc. If nothing mentioned → "none"
-    6. **Signup link priority**: Direct URL > walk-in > email > Telegram link > 'TBC'
+    4. **Target audience defaults**: If unclear → "All students"
+    5. **Refreshments detection**: Look for keywords and extract the TYPE: "Dinner provided" → "Dinner", "Light refreshments" → "Light refreshments", "Snacks" → "Snacks", "Free acai" → "Acai", "Networking dinner" → "Dinner", etc. If nothing mentioned → "None"
+    6. **Signup link priority**: Direct URL > Walk-in > Email > Telegram link > 'TBC'
     7. **Date format**: Always include year (2025 or 2026) for clarity
     8. **Organisation detection**: Look for organizing body - could be prefixed with "On Behalf of", company names, student clubs, government agencies, etc.
 
     Handle edge cases:
-    - "Walk in anytime" → signup_link is "walk-in", fee usually "free"
+    - "Walk in anytime" → signup_link is "Walk-in", fee usually 0
     - Multiple dates → extract the main event date(s)
     - QR code mentions → signup_link = "TBC" (mention QR in synopsis if important)
     - Meta-events (newsletters) → extract the newsletter/post itself as the event
@@ -86,6 +87,7 @@ def extract_event_details(message_text: str) -> dict:
                 event_data[field] = "Unknown" if field != "target_audience" else "all students"
         
         return event_data
+    
     except json.JSONDecodeError:
         print(f"⚠️ Claude response wasn't valid JSON: {response_text[:200]}")
         # Return minimal valid structure on parse failure
@@ -106,24 +108,41 @@ def extract_event_details(message_text: str) -> dict:
             "parse_error": True
         }
 
+def clean_event_data(event_data: dict) -> dict:
+    """
+    Clean and standardize event data before saving to database.
+    Applies formatting rules consistently.
+    """
+    cleaned = event_data.copy()
+    if 'title' in cleaned: # Remove markdown from title
+        cleaned['title'] = cleaned['title'].replace('**', '').replace('*', '').strip()
+    if 'event_type' in cleaned:
+        cleaned['event_type'] = cleaned['event_type'].capitalize()
+    if 'refreshments' in cleaned: 
+        cleaned['refreshments'] = cleaned['refreshments'].capitalize()
+
+    # Convert fee to proper format (handle "free" -> 0, "TBC" -> None)
+    fee = cleaned.get('fee')
+    if fee in ['free', 'Free', 'FREE', 0, '0', 0.0]:
+        cleaned['fee'] = 0.0
+    elif fee in ['TBC', 'tbc', None]:
+        cleaned['fee'] = None
+    elif isinstance(fee, (int, float)):
+        cleaned['fee'] = float(fee)
+    elif isinstance(fee, str): # If it's a string like "$10.50" or "12.5", try to extract number
+        match = re.search(r'\d+\.?\d*', fee)
+        cleaned['fee'] = float(match.group()) if match else None
+    
+    return cleaned
 
 def format_event_for_display(event_data: dict) -> str:
     """Format extracted event data into a readable Telegram message"""
-
-    if event_data.get("parse_error"):
-        return f"""⚠️ Had trouble parsing this message automatically.
-
-        📌 Title: {event_data.get('title', 'Unable to parse title')}
-
-        I've saved what I could extract, but you should check the full message details when you review it in the web sorter."""
-    
-    result = f"""✅ Event successfully extracted!
-
-📌 **{event_data.get('title', 'Untitled')}**
-🏷️ Type: {event_data.get('event_type', 'other').upper()}
+    result = f"""
+📌 {event_data.get('title', 'Untitled')}
+🏷️ Type: {event_data.get('event_type', 'other')}
 📅 Date: {event_data.get('date', 'TBC')}
 📍 Location: {event_data.get('location', 'TBC')}
-📝 Synopsis: {event_data.get('synopsis', 'No description')}"""
+📝 Synopsis: {event_data.get('synopsis', 'TBC')}"""
     
     # --- Add optional fields if they have values --- #
     # Add org
@@ -139,26 +158,22 @@ def format_event_for_display(event_data: dict) -> str:
     if signup and signup not in ['TBC', 'None']:
         if signup.startswith('http'):
             result += f"\n🔗 Sign up: {signup}"
-        else:
-            result += f"\n🔗 {signup}"
-    
-    # Add deadline
-    deadline = event_data.get('deadline')
-    if deadline and deadline != 'None':
-        result += f"\n⏰ Deadline: {deadline}"
-    
+
     # Add target audience if not default
-    if event_data.get('target_audience') and event_data['target_audience'] != 'all students':
+    if event_data.get('target_audience') and event_data['target_audience'] != 'All students':
         result += f"\n👥 For: {event_data['target_audience']}"
     
     # Add refreshments
-    if event_data.get('refreshments') and event_data['refreshments'] not in ['none', 'no']:
+    if event_data.get('refreshments') and event_data['refreshments'] not in ['None', 'No']:
         result += f"\n🍽️ Refreshments: {event_data['refreshments']}"
     
     # Add key speakers
     if event_data.get('key_speakers') and event_data['key_speakers'] != 'None':
         result += f"\n🎤 Speakers: {event_data['key_speakers']}"
-    
-    result += "\n\n💡 Reminder: Review full details in the web UI before committing!"
+
+    if event_data.get("parse_error"):
+        result = "⚠️ Had trouble parsing this message automatically. I've saved what I could extract.\n" + result
+    else:
+        result = "✅ Event details extracted successfully!\n" + result
     
     return result

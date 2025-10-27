@@ -1,7 +1,7 @@
 import os
 from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
-from sqlalchemy import create_engine, Column, Integer, BigInteger, String, Text, DateTime, Boolean
+from sqlalchemy import create_engine, Column, Integer, BigInteger, String, Text, DateTime, Boolean, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
@@ -31,7 +31,7 @@ class Event(Base):
     location = Column(String(500))
     synopsis = Column(Text, nullable=False)
     organisation = Column(String(300))
-    fee = Column(String(100))
+    fee = Column(Float)  # 0.0 = free, positive number = paid (e.g., 10.50)
     signup_link = Column(Text)
     deadline = Column(String(200))
     target_audience = Column(String(300))
@@ -45,7 +45,7 @@ class Event(Base):
     user_interested = Column(Boolean, default=None)  # None = not swiped, True = interested, False = not interested
     
     # Metadata
-    date_created = Column(DateTime, default=datetime.utcnow)
+    date_created = Column(DateTime, default=datetime.now(SGT)) # store in SGT
     parse_error = Column(Boolean, default=False)
     
     def __repr__(self):
