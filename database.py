@@ -1,18 +1,42 @@
 import os
+import secrets
 from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, Column, Integer, BigInteger, String, Text, DateTime, Boolean, Float
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
+
 # --- DATABASE SETUP --- #
 load_dotenv()
 engine = create_engine(os.getenv("DATABASE_URL"))
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+TOKEN_EXPIRY = 5 # minutes until token for web access expires
 SGT = timezone(timedelta(hours=8)) # defaults to SGT
+def get_sgt_now(): # get current time in SGT
+    return datetime.now(SGT)
 
-# --- DATABASE MODEL --- #
+
+# --- DATABASE MODELS --- #
+class AuthToken(Base):
+    """One-time authentication tokens for web access"""
+    __tablename__ = "auth_tokens"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    token = Column(String(64), unique=True, nullable=False, index=True)
+    user_id = Column(BigInteger, nullable=False)
+    username = Column(String(255))
+    used = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=get_sgt_now)
+    expires_at = Column(DateTime, nullable=False)
+    
+    def is_valid(self):
+        """Check if token is still valid"""
+        now = datetime.now(SGT)
+        return not self.used and now < self.expires_at
+
+
 class Event(Base):
     """Event model for storing extracted event details"""
     __tablename__ = "events"
@@ -45,7 +69,7 @@ class Event(Base):
     user_interested = Column(Boolean, default=None)  # None = not swiped, True = interested, False = not interested
     
     # Metadata
-    date_created = Column(DateTime, default=datetime.now(SGT)) # store in SGT
+    date_created = Column(DateTime, default=get_sgt_now()) # store in SGT
     parse_error = Column(Boolean, default=False)
     
     def __repr__(self):
@@ -59,7 +83,7 @@ def init_db():
 
 
 def get_db():
-    """Get database session"""
+    """Get database session (for FastAPI dependency injection)"""
     db = SessionLocal()
     try:
         yield db
@@ -136,6 +160,59 @@ def update_event_interest(event_id: int, interested: bool):
             db.commit()
             print(f"✅ Event {event_id} interest updated: {interested}")
         return event
+    finally:
+        db.close()
+
+
+def create_auth_token(user_id: int, username: str, expires_minutes: int = TOKEN_EXPIRY) -> str:
+    """Create a one-time authentication token for web access"""
+    db = SessionLocal()
+    try:
+        token = secrets.token_urlsafe(32)
+        expires_at = get_sgt_now() + timedelta(minutes=expires_minutes)
+        auth_token = AuthToken( # save to DB
+            token=token,
+            user_id=user_id,
+            username=username,
+            expires_at=expires_at
+        )
+        
+        db.add(auth_token)
+        db.commit()
+        
+        print(f"✅ Auth token created for user {user_id}: {token[:10]}...")
+        return token
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error creating token: {e}")
+        raise
+
+    finally:
+        db.close()
+
+
+def validate_and_use_token(token: str):
+    """Validate a token and mark it as used. Returns user info if valid."""
+    db = SessionLocal()
+    try:
+        auth_token = db.query(AuthToken).filter(AuthToken.token == token).first()
+        
+        if not auth_token:
+            return None
+        
+        if not auth_token.is_valid():
+            return None
+        
+        # Mark token as used
+        auth_token.used = True
+        db.commit()
+        
+        return {
+            "user_id": auth_token.user_id,
+            "username": auth_token.username
+        }
+        
     finally:
         db.close()
 

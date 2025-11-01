@@ -3,10 +3,11 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from dotenv import load_dotenv
 from claude import extract_event_details, format_event_for_display, clean_event_data
-from database import save_event
+from database import save_event, create_auth_token
 
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+
 
 # --- APP SETUP --- #
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -61,6 +62,32 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print("❌ Not detected as forwarded message")
         await message.reply_text("Please forward an event message to me :)")
 
+
+# --- BOT COMMANDS --- #
+async def sort_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handles the /sort command - generates one-time link to web UI"""
+    user = update.message.from_user
+    
+    try:
+        # Generate one-time token (expires in 5 minutes)
+        token = create_auth_token(user.id, user.username or "unknown")
+        
+        # PLACEHOLDER: Replace with your actual web app URL
+        web_url = f"http://localhost:3000/?token={token}"
+        
+        await update.message.reply_text(
+            f"🔗 Click to sort your events: {web_url}\n\n"
+            f"⏰ This link expires in 5 minutes and can only be used once.\n"
+            f"💡 Use the swipe interface to mark events you're interested in!"
+        )
+        
+    except Exception as e:
+        print(f"❌ Error generating sort link: {e}")
+        await update.message.reply_text(
+            ":( Sorry, I couldn't generate your link. Please try again!"
+        )
+
+
 # --- RUN APP --- #
 def main():
     """Start the bot"""
@@ -70,6 +97,7 @@ def main():
     # Add handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("sort", sort_command))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     app.add_handler(MessageHandler(filters.PHOTO | filters.VIDEO | filters.Document.ALL, handle_message))
 
