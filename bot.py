@@ -76,9 +76,9 @@ async def sort_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         web_url = f"http://localhost:3000/?token={token}"
         
         await update.message.reply_text(
-            f"🔗 Click to sort your events: {web_url}\n\n"
-            f"⏰ This link expires in 5 minutes and can only be used once.\n"
-            f"💡 Use the swipe interface to mark events you're interested in!"
+            f"🔗 Click here to sort your events:\n{web_url}\n"
+            f"⏰ This link expires in 5 minutes and can only be used once.\n",
+            disable_web_page_preview=True
         )
         
     except Exception as e:

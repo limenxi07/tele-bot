@@ -33,7 +33,8 @@ class AuthToken(Base):
     
     def is_valid(self):
         """Check if token is still valid"""
-        now = datetime.now(SGT)
+        now = datetime.now(SGT).replace(tzinfo=None)  # Remove timezone info for comparison
+        expires_at = self.expires_at.replace(tzinfo=None) if self.expires_at.tzinfo else self.expires_at
         return not self.used and now < self.expires_at
 
 
