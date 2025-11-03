@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { Event, AuthResponse, SwipeResponse, Stats } from '../types/Event';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'https://api-production-ce2b.up.railway.app/';
 
 // Create axios instance with default config
 const api = axios.create({
