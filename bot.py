@@ -7,6 +7,7 @@ from database import save_event, create_auth_token
 
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+WEB_URL = "https://api-production-ce2b.up.railway.app/"
 
 
 # --- APP SETUP --- #
@@ -73,7 +74,7 @@ async def sort_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         token = create_auth_token(user.id, user.username or "unknown")
         
         # PLACEHOLDER: Replace with your actual web app URL
-        web_url = f"http://localhost:3000/?token={token}"
+        web_url = f"{WEB_URL}/?token={token}"
         
         await update.message.reply_text(
             f"🔗 Click here to sort your events:\n{web_url}\n"
