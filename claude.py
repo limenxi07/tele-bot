@@ -151,8 +151,10 @@ def format_event_for_display(event_data: dict) -> str:
         result += f"\n🏢 Organised by: {org}"
     
     # Add fees
-    result += f"\n💰 Fee: {event_data.get('fee', 'TBC')}"
-    
+    fee = event_data.get('fee')
+    if fee != 0.0:
+        result += f"\n💰 Fee: {fee}"
+
     # Add signup link
     signup = event_data.get('signup_link', 'TBC')
     if signup and signup not in ['TBC', 'None']:
