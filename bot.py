@@ -7,7 +7,7 @@ from database import save_event, create_auth_token
 
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-WEB_URL = "https://api-production-ce2b.up.railway.app/"
+WEB_URL = os.getenv("API_URL")
 
 
 # --- APP SETUP --- #
