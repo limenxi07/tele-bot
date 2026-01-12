@@ -74,7 +74,7 @@ async def sort_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         token = create_auth_token(user.id, user.username or "unknown")
         
         # PLACEHOLDER: Replace with your actual web app URL
-        web_url = f"{WEB_URL}/?token={token}"
+        web_url = f"{WEB_URL}?token={token}"
         
         await update.message.reply_text(
             f"🔗 Click here to sort your events:\n{web_url}\n"
