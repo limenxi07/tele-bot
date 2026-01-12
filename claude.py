@@ -40,7 +40,8 @@ def extract_event_details(message_text: str) -> dict:
         "deadline": "REQUIRED - registration/application deadline in format 'DD MMM YYYY, time' OR if not explicitly stated, estimate 24 hours before event start OR 'None' if ongoing/no deadline",
         "target_audience": "REQUIRED - who it's for (e.g., 'Women and gender-expansive students', 'CS students', 'Startup founders', 'All NUS students') - default to 'All students' if unclear",
         "key_speakers": "names of notable speakers/guests if mentioned, or 'None'",
-        "refreshments": "type of refreshments if mentioned (e.g., 'Dinner', 'Lunch', 'Light refreshments', 'Snacks', 'Tea'), or 'None' if not mentioned"
+        "refreshments": "type of refreshments if mentioned (e.g., 'Dinner', 'Lunch', 'Light refreshments', 'Snacks', 'Tea'), or 'None' if not mentioned",
+        "contacts": "contact details for enquiries (usually telegram @), if mentioned, or 'None' if not mentioned."
     }}
 
     CRITICAL EXTRACTION RULES:
@@ -54,6 +55,7 @@ def extract_event_details(message_text: str) -> dict:
     6. **Signup link priority**: Direct URL > Walk-in > Email > Telegram link > 'TBC'
     7. **Date format**: Always include year (2025 or 2026) for clarity
     8. **Organisation detection**: Look for organizing body - could be prefixed with "On Behalf of", company names, student clubs, government agencies, etc.
+    9. **Contacts extraction**: Look for any contact details provided for enquiries (usually Telegram handles, e.g., @username). If none mentioned, set to "None". If more than one handle is provided, include all separated by commas. In front of each handle, include the platform if mentioned (e.g., Telegram @username), and retain the @ symbol for Telegram handles.
 
     Handle edge cases:
     - "Walk in anytime" → signup_link is "Walk-in", fee usually 0
@@ -103,7 +105,8 @@ def extract_event_details(message_text: str) -> dict:
             "deadline": "TBC",
             "target_audience": "all students",
             "key_speakers": "None",
-            "refreshments": "no",
+            "refreshments": "None",
+            "contacts": "None",
             "raw_message": message_text,
             "parse_error": True
         }

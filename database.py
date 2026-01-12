@@ -62,6 +62,7 @@ class Event(Base):
     target_audience = Column(String(300))
     refreshments = Column(String(200))
     key_speakers = Column(Text)
+    contacts = Column(Text)
     
     # Raw message for reference
     raw_message = Column(Text, nullable=False)
@@ -112,6 +113,7 @@ def save_event(event_data: dict, user_id: int, username: str, raw_message: str) 
             target_audience=event_data.get('target_audience'),
             refreshments=event_data.get('refreshments'),
             key_speakers=event_data.get('key_speakers'),
+            contacts=event_data.get('contacts'),
             raw_message=raw_message,
             parse_error=event_data.get('parse_error', False)
         )
